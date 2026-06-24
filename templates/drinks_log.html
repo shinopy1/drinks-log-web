@@ -250,6 +250,61 @@
     background: var(--border);
     margin: 20px 0;
   }
+
+  /* 記録リスト */
+  .records-section { padding: 0 16px; max-width: 500px; margin: 0 auto; }
+  .records-title {
+    font-size: 0.78rem; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 10px; margin-top: 28px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .record-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .record-item:hover, .record-item:active { border-color: var(--accent2); background: rgba(83,109,254,0.08); }
+  .record-item.editing { border-color: var(--yellow); background: rgba(255,213,79,0.08); }
+  .record-emoji { font-size: 1.4rem; flex-shrink: 0; }
+  .record-body { flex: 1; min-width: 0; }
+  .record-cat  { font-size: 0.88rem; font-weight: 600; }
+  .record-sub  { font-size: 0.78rem; color: var(--muted); margin-top: 2px;
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .record-right { text-align: right; flex-shrink: 0; }
+  .record-alc  { font-size: 0.9rem; color: var(--yellow); font-weight: 600; }
+  .record-date { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+  /* 編集モードのキャンセルボタン */
+  .cancel-btn {
+    width: 100%; background: transparent;
+    border: 1px solid var(--border); border-radius: 14px;
+    color: var(--muted); font-size: 0.95rem; font-weight: 600;
+    padding: 13px; cursor: pointer; margin-top: 8px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .cancel-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* 削除ボタン */
+  .delete-btn {
+    background: transparent; border: 1px solid rgba(239,83,80,0.4);
+    border-radius: 14px; color: var(--red);
+    font-size: 0.88rem; padding: 10px 16px;
+    cursor: pointer; margin-top: 8px; width: 100%;
+    transition: background 0.15s;
+  }
+  .delete-btn:hover { background: rgba(239,83,80,0.1); }
+
+  .edit-banner {
+    background: rgba(255,213,79,0.1); border: 1px solid rgba(255,213,79,0.4);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 16px;
+    font-size: 0.85rem; color: var(--yellow); display: none;
+  }
 </style>
 </head>
 <body>
@@ -311,7 +366,7 @@
     <div class="field hidden" id="photoField">
       <label>ラベル写真 <span style="color:var(--muted); font-weight:400; font-size:0.75rem;">（Gemini AIで自動解析）</span></label>
       <div class="photo-area" id="photoArea">
-        <input type="file" name="photo" id="photoInput" accept="image/*" capture="environment"
+        <input type="file" name="photo" id="photoInput" accept="image/*"
                onchange="previewPhoto(this)">
         <span class="icon">📷</span>
         <span class="hint">タップして撮影 or ライブラリから選択</span>
@@ -345,8 +400,8 @@
     <div class="divider"></div>
 
     <!-- 銘柄・商品名 -->
-    <div class="field">
-      <label>銘柄・商品名 <span style="color:var(--muted); font-weight:400;">（任意）</span></label>
+    <div class="field" id="nameField">
+      <label id="nameLabel">銘柄・商品名 <span id="nameOptional" style="color:var(--muted); font-weight:400;">（任意）</span></label>
       <input type="text" name="name" id="nameInput" placeholder="例: よなよなエール、獺祭 二割三分">
     </div>
 
@@ -362,12 +417,34 @@
       <textarea name="note" placeholder="味の感想など…"></textarea>
     </div>
 
+    <!-- 編集モードバナー -->
+    <div class="edit-banner" id="editBanner">✏️ 編集モード — 変更して「更新する」を押してください</div>
+
     <button type="button" class="submit-btn" id="submitBtn" onclick="submitForm()" disabled>
       記録する
     </button>
+    <button type="button" class="cancel-btn hidden" id="cancelBtn" onclick="cancelEdit()">
+      キャンセル
+    </button>
+    <button type="button" class="delete-btn hidden" id="deleteBtn" onclick="deleteRecord()">
+      🗑 この記録を削除
+    </button>
+
+    <input type="hidden" name="edit_id" id="editIdInput">
 
   </form>
 
+</div>
+
+<!-- 直近の記録リスト -->
+<div class="records-section">
+  <div class="records-title">
+    <span>📋 直近の記録</span>
+    <span id="recordsCount" style="font-weight:400;"></span>
+  </div>
+  <div id="recordsList">
+    <p style="color:var(--muted); font-size:0.85rem; text-align:center; padding:20px;">読み込み中…</p>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -397,6 +474,14 @@ function selectCat(el) {
   currentCat = el.dataset.cat;
   document.getElementById('categoryInput').value = currentCat;
 
+  // nameInput を一度リセット
+  const nameInput    = document.getElementById('nameInput');
+  const nameOptional = document.getElementById('nameOptional');
+  nameInput.required = false;
+  nameOptional.textContent = '（任意）';
+  nameOptional.style.color = 'var(--muted)';
+  nameInput.placeholder = '例: よなよなエール、獺祭 二割三分';
+
   const servingField  = document.getElementById('servingField');
   const photoField    = document.getElementById('photoField');
 
@@ -421,6 +506,20 @@ function selectCat(el) {
     photoField.classList.add('hidden');
     // その他のプリセット
     const catKey = { 'ハイボール': 'highball', 'サワー': 'sour', 'その他': 'other' }[currentCat] || 'other';
+    // 「その他」のとき銘柄フィールドを必須化
+    const nameInput    = document.getElementById('nameInput');
+    const nameOptional = document.getElementById('nameOptional');
+    if (currentCat === 'その他') {
+      nameInput.placeholder = '例: シャンディガフ、梅酒ソーダ';
+      nameInput.required = true;
+      nameOptional.textContent = '（必須）';
+      nameOptional.style.color = 'var(--accent2)';
+    } else {
+      nameInput.placeholder = '例: よなよなエール、獺祭 二割三分';
+      nameInput.required = false;
+      nameOptional.textContent = '（任意）';
+      nameOptional.style.color = 'var(--muted)';
+    }
     const p = PRESETS[catKey];
     if (p) {
       const first = Object.values(p)[0];
@@ -495,8 +594,9 @@ function updateAlcPreview() {
 
 // ── 送信ボタン有効化 ──
 function updateSubmitBtn() {
+  const editing = !!document.getElementById('editIdInput').value;
   const ok = currentCat !== '' &&
-    (currentCat !== 'ビール' || currentServing !== '');
+    (currentCat !== 'ビール' || currentServing !== '' || editing);
   document.getElementById('submitBtn').disabled = !ok;
 }
 
@@ -515,42 +615,57 @@ function previewPhoto(input) {
   reader.readAsDataURL(file);
 }
 
-// ── フォーム送信 ──
+// ── フォームリセット ──
+function resetForm() {
+  const form = document.getElementById('drinkForm');
+  form.reset();
+  document.querySelectorAll('.cat-btn, .serving-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('photoPreview').style.display = 'none';
+  document.querySelector('#photoArea .icon').textContent = '📷';
+  document.querySelector('#photoArea .hint').textContent = 'タップして撮影 or ライブラリから選択';
+  document.getElementById('countVal').textContent = '1';
+  document.getElementById('servingField').classList.add('hidden');
+  document.getElementById('photoField').classList.add('hidden');
+  document.getElementById('alcPreviewField').classList.add('hidden');
+  document.getElementById('editIdInput').value = '';
+  document.getElementById('editBanner').style.display = 'none';
+  document.getElementById('cancelBtn').classList.add('hidden');
+  document.getElementById('deleteBtn').classList.add('hidden');
+  document.getElementById('submitBtn').textContent = '記録する';
+  document.querySelectorAll('.record-item').forEach(el => el.classList.remove('editing'));
+  currentCat = ''; currentServing = ''; currentCount = 1;
+  currentVolMl = null; currentAbv = null;
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('datetimeInput').value =
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  updateSubmitBtn();
+}
+
+// ── フォーム送信（新規 or 更新） ──
 async function submitForm() {
-  const btn = document.getElementById('submitBtn');
+  const btn    = document.getElementById('submitBtn');
+  const editId = document.getElementById('editIdInput').value;
+  const isEdit = !!editId;
+
   btn.disabled = true;
-  btn.textContent = '送信中…';
+  btn.textContent = isEdit ? '更新中…' : '送信中…';
 
   const form = document.getElementById('drinkForm');
   const fd   = new FormData(form);
 
+  const url = isEdit ? `/api/drinks/edit/${editId}` : '/api/drinks/add';
   try {
-    const res  = await fetch('/api/drinks/add', { method: 'POST', body: fd });
+    const res  = await fetch(url, { method: 'POST', body: fd });
     const data = await res.json();
 
     if (data.ok) {
-      let msg = '✅ 記録しました';
+      let msg = isEdit ? '✅ 更新しました' : '✅ 記録しました';
       if (data.alcohol_g) msg += `（${data.alcohol_g}g）`;
       if (data.meta) msg += ` — ${data.meta}`;
-      if (!data.notion) msg += ' ⚠️ Notion未同期';
       showToast(msg, 'success');
-      // フォームリセット
-      form.reset();
-      document.querySelectorAll('.cat-btn, .serving-btn').forEach(b => b.classList.remove('selected'));
-      document.getElementById('photoPreview').style.display = 'none';
-      document.querySelector('#photoArea .icon').textContent = '📷';
-      document.querySelector('#photoArea .hint').textContent = 'タップして撮影 or ライブラリから選択';
-      document.getElementById('countVal').textContent = '1';
-      document.getElementById('servingField').classList.add('hidden');
-      document.getElementById('photoField').classList.add('hidden');
-      document.getElementById('alcPreviewField').classList.add('hidden');
-      currentCat = ''; currentServing = ''; currentCount = 1;
-      currentVolMl = null; currentAbv = null;
-      // 日時を現在時刻にリセット
-      const now = new Date();
-      const pad = n => String(n).padStart(2, '0');
-      document.getElementById('datetimeInput').value =
-        `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      resetForm();
+      loadRecords();
     } else {
       showToast('❌ ' + (data.error || '送信失敗'), 'error');
     }
@@ -558,10 +673,122 @@ async function submitForm() {
     showToast('❌ 通信エラー: ' + e.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = '記録する';
+    btn.textContent = isEdit ? '更新する' : '記録する';
     updateSubmitBtn();
   }
 }
+
+// ── 編集モードに入る ──
+function editRecord(r) {
+  // フォームを埋める
+  const pad = n => String(n).padStart(2, '0');
+  const dt = r.datetime
+    ? r.datetime.slice(0, 16).replace(' ', 'T')
+    : r.date + 'T00:00';
+  document.getElementById('datetimeInput').value = dt;
+  document.getElementById('nameInput').value  = r.name  || '';
+  document.querySelector('[name="place"]').value = r.place || '';
+  document.querySelector('[name="note"]').value  = r.note  || '';
+
+  // カテゴリ
+  const catBtn = document.querySelector(`.cat-btn[data-cat="${r.category}"]`);
+  if (catBtn) selectCat(catBtn);
+
+  // 提供サイズ（ビール）
+  if (r.category === 'ビール' && r.name) {
+    // 提供サイズはnameではなくserving相当フィールドがないため銘柄で代替
+  }
+
+  // 杯数
+  currentCount = r.count || 1;
+  document.getElementById('countVal').textContent = currentCount;
+  document.getElementById('countInput').value = currentCount;
+
+  // 編集IDセット
+  document.getElementById('editIdInput').value = r.id;
+  document.getElementById('editBanner').style.display = 'block';
+  document.getElementById('cancelBtn').classList.remove('hidden');
+  document.getElementById('deleteBtn').classList.remove('hidden');
+  document.getElementById('submitBtn').textContent = '更新する';
+  document.getElementById('submitBtn').disabled = false;
+
+  // 該当リストアイテムをハイライト
+  document.querySelectorAll('.record-item').forEach(el => el.classList.remove('editing'));
+  const targetEl = document.querySelector(`.record-item[data-id="${r.id}"]`);
+  if (targetEl) targetEl.classList.add('editing');
+
+  // フォームまでスクロール
+  document.querySelector('.form-body').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── 編集キャンセル ──
+function cancelEdit() {
+  resetForm();
+}
+
+// ── 削除 ──
+async function deleteRecord() {
+  const editId = document.getElementById('editIdInput').value;
+  if (!editId) return;
+  if (!confirm('この記録を削除しますか？')) return;
+
+  try {
+    const res  = await fetch(`/api/drinks/delete/${editId}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('🗑 削除しました', 'success');
+      resetForm();
+      loadRecords();
+    } else {
+      showToast('❌ ' + (data.error || '削除失敗'), 'error');
+    }
+  } catch(e) {
+    showToast('❌ 通信エラー: ' + e.message, 'error');
+  }
+}
+
+// ── 直近の記録を取得・表示 ──
+const CAT_EMOJI = { 'ビール':'🍺','ワイン':'🍷','日本酒':'🍶','ハイボール':'🥃','サワー':'🍋','その他':'🍸' };
+
+async function loadRecords() {
+  try {
+    const res  = await fetch('/api/drinks/recent');
+    const data = await res.json();
+    renderRecords(data.records || []);
+  } catch(e) {
+    document.getElementById('recordsList').innerHTML =
+      '<p style="color:var(--muted);font-size:0.85rem;text-align:center;padding:16px;">読み込みエラー</p>';
+  }
+}
+
+function renderRecords(records) {
+  const el = document.getElementById('recordsList');
+  document.getElementById('recordsCount').textContent = `${records.length}件`;
+  if (records.length === 0) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;text-align:center;padding:16px;">記録がありません</p>';
+    return;
+  }
+  el.innerHTML = records.map(r => {
+    const emoji = CAT_EMOJI[r.category] || '🍸';
+    const sub   = [r.name, r.place].filter(Boolean).join(' · ') || r.category;
+    const dt    = (r.datetime || r.date || '').slice(0, 16).replace('T', ' ');
+    const alc   = r.alcohol_g != null ? `${r.alcohol_g}g` : '—';
+    return `<div class="record-item" data-id="${r.id}" onclick='editRecord(${JSON.stringify(r).replace(/'/g, "&#39;")})'>
+      <div class="record-emoji">${emoji}</div>
+      <div class="record-body">
+        <div class="record-cat">${r.category}${r.count > 1 ? ` ×${r.count}` : ''}</div>
+        <div class="record-sub">${sub}</div>
+      </div>
+      <div class="record-right">
+        <div class="record-alc">${alc}</div>
+        <div class="record-date">${dt}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ページ読み込み時に記録を取得
+loadRecords();
 
 // ── トースト通知 ──
 function showToast(msg, type = '') {
