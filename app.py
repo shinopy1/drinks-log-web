@@ -203,6 +203,110 @@ def api_drinks_add():
     })
 
 
+@app.route("/api/drinks/recent")
+def api_drinks_recent():
+    NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "").strip()
+    DRINKS_DB_ID = os.environ.get("DRINKS_DB_ID", "").strip()
+    if not (NOTION_TOKEN and DRINKS_DB_ID):
+        return jsonify({"ok": True, "records": []})
+
+    try:
+        body = json.dumps({
+            "sorts": [{"property": "日時", "direction": "descending"}],
+            "page_size": 30,
+        }).encode()
+        req = urllib.request.Request(
+            f"https://api.notion.com/v1/databases/{DRINKS_DB_ID}/query",
+            data=body, headers=notion_headers(), method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as r:
+            resp = json.loads(r.read())
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    def prop_text(p, ptype="title"):
+        if ptype == "title":
+            arr = p.get("title", [])
+        else:
+            arr = p.get("rich_text", [])
+        return "".join(t.get("plain_text", "") for t in arr)
+
+    records = []
+    for page in resp.get("results", []):
+        props = page.get("properties", {})
+        pid = page["id"]
+        dt_val = (props.get("日時") or {}).get("date") or {}
+        dt_str = (dt_val.get("start") or "")[:16].replace("T", " ")
+        cat_val = (props.get("カテゴリ") or {}).get("select") or {}
+        alc = (props.get("純アルコールg") or {}).get("number")
+        records.append({
+            "id":         f"notion_{pid.replace('-', '')}",
+            "datetime":   dt_str,
+            "date":       dt_str[:10],
+            "category":   cat_val.get("name", ""),
+            "name":       prop_text(props.get("銘柄・商品名") or {"rich_text": []}),
+            "count":      (props.get("杯数") or {}).get("number") or 1,
+            "place":      prop_text(props.get("店・場所") or {"rich_text": []}, "rich_text"),
+            "note":       prop_text(props.get("メモ") or {"rich_text": []}, "rich_text"),
+            "alcohol_g":  alc,
+        })
+    return jsonify({"ok": True, "records": records})
+
+
+@app.route("/api/drinks/edit/<drink_id>", methods=["POST"])
+def api_drinks_edit(drink_id):
+    NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "").strip()
+    form = request.form
+    dt_str   = form.get("datetime", "").strip()
+    category = form.get("category", "").strip()
+    name     = form.get("name", "").strip()
+    count    = int(form.get("count") or 1)
+    place    = form.get("place", "").strip()
+    note     = form.get("note", "").strip()
+    volume_ml = float(form.get("volume_ml")) if form.get("volume_ml") else None
+    abv       = float(form.get("abv")) if form.get("abv") else None
+    alcohol_g = round(volume_ml * (abv / 100) * 0.8 * count, 1) if (volume_ml and abv) else None
+
+    if NOTION_TOKEN and drink_id.startswith("notion_"):
+        notion_id = drink_id[7:]
+        # UUIDフォーマットに戻す
+        if len(notion_id) == 32:
+            notion_id = f"{notion_id[:8]}-{notion_id[8:12]}-{notion_id[12:16]}-{notion_id[16:20]}-{notion_id[20:]}"
+        props = {}
+        if dt_str:
+            try:
+                dt_obj = datetime.strptime(dt_str[:16], "%Y-%m-%d %H:%M")
+                props["日時"] = {"date": {"start": dt_obj.strftime("%Y-%m-%dT%H:%M:00+09:00")}}
+            except Exception:
+                pass
+        if category:  props["カテゴリ"] = {"select": {"name": category}}
+        if name:      props["銘柄・商品名"] = {"rich_text": [{"text": {"content": name}}]}
+        if count:     props["杯数"] = {"number": count}
+        if place is not None: props["店・場所"] = {"rich_text": [{"text": {"content": place}}]}
+        if note is not None:  props["メモ"] = {"rich_text": [{"text": {"content": note}}]}
+        if alcohol_g: props["純アルコールg"] = {"number": alcohol_g}
+        if props:
+            try:
+                notion_patch(f"pages/{notion_id}", {"properties": props})
+            except Exception as e:
+                return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True, "alcohol_g": alcohol_g})
+
+
+@app.route("/api/drinks/delete/<drink_id>", methods=["POST"])
+def api_drinks_delete(drink_id):
+    NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "").strip()
+    if NOTION_TOKEN and drink_id.startswith("notion_"):
+        notion_id = drink_id[7:]
+        if len(notion_id) == 32:
+            notion_id = f"{notion_id[:8]}-{notion_id[8:12]}-{notion_id[12:16]}-{notion_id[16:20]}-{notion_id[20:]}"
+        try:
+            notion_patch(f"pages/{notion_id}", {"archived": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True})
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5052))
     app.run(host="0.0.0.0", port=port, debug=False)
