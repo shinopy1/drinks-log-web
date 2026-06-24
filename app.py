@@ -127,6 +127,12 @@ def api_drinks_add():
         return jsonify({"ok": False, "error": "カテゴリは必須です"}), 400
     if not dt_str:
         dt_str = datetime.now().strftime("%Y-%m-%dT%H:%M")
+    # Notion API 用に タイムゾーン付き ISO 形式に変換
+    try:
+        dt_obj = datetime.strptime(dt_str[:16], "%Y-%m-%dT%H:%M")
+        dt_str_notion = dt_obj.strftime("%Y-%m-%dT%H:%M:00+09:00")
+    except Exception:
+        dt_str_notion = dt_str
 
     # ── プリセットから純アルコールg ──
     presets = load_presets()
@@ -171,7 +177,7 @@ def api_drinks_add():
         title_text = f"{name}（{category}）" if name else f"{category} {dt_str[:10]}"
         props = {
             "Name":     {"title": [{"type": "text", "text": {"content": title_text}}]},
-            "日時":     {"date": {"start": dt_str}},
+            "日時":     {"date": {"start": dt_str_notion}},
             "カテゴリ": {"select": {"name": category}},
             "杯数":     {"number": count},
             "解析済み": {"checkbox": False},
