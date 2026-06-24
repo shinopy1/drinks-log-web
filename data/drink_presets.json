@@ -1,0 +1,28 @@
+{
+  "beer": {
+    "生大":   { "volume_ml": 700, "abv": 5.0 },
+    "生中":   { "volume_ml": 400, "abv": 5.0 },
+    "生小":   { "volume_ml": 300, "abv": 5.0 },
+    "グラス": { "volume_ml": 200, "abv": 5.0 },
+    "中瓶":   { "volume_ml": 500, "abv": 5.0 },
+    "缶":     { "volume_ml": 350, "abv": 5.0 },
+    "クラフト": { "volume_ml": 470, "abv": 6.5 }
+  },
+  "highball": {
+    "default": { "volume_ml": 350, "abv": 7.0 }
+  },
+  "sour": {
+    "default": { "volume_ml": 350, "abv": 6.0 }
+  },
+  "wine": {
+    "グラス": { "volume_ml": 120, "abv": 12.0 },
+    "ボトル": { "volume_ml": 750, "abv": 12.0 }
+  },
+  "sake": {
+    "1合": { "volume_ml": 180, "abv": 15.0 },
+    "2合": { "volume_ml": 360, "abv": 15.0 }
+  },
+  "other": {
+    "default": { "volume_ml": 200, "abv": 5.0 }
+  }
+}

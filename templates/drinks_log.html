@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🍶 飲酒ログ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f0f1a;
+    --surface:  #1a1a2e;
+    --surface2: #22223a;
+    --border:   #2e2e50;
+    --text:     #e8eaf0;
+    --muted:    #7a7aaa;
+    --accent:   #7c4dff;
+    --accent2:  #536dfe;
+    --green:    #69f0ae;
+    --red:      #ef5350;
+    --yellow:   #ffd54f;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-size: 16px;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 700; }
+  header a  { color: var(--muted); font-size: 0.85rem; text-decoration: none; margin-left: auto; }
+
+  .form-body { padding: 16px; max-width: 500px; margin: 0 auto; }
+
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 1rem;
+    padding: 12px 14px;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    border-color: var(--accent2);
+  }
+  .field input[type="datetime-local"] { font-size: 0.95rem; }
+  .field textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+
+  /* カテゴリ選択：大きなボタン群 */
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .cat-btn {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    color: var(--muted);
+    font-size: 0.88rem;
+    padding: 12px 4px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .cat-btn .emoji { display: block; font-size: 1.6rem; margin-bottom: 4px; }
+  .cat-btn.selected {
+    border-color: var(--accent2);
+    background: rgba(83,109,254,0.15);
+    color: var(--text);
+  }
+
+  /* 提供サイズ */
+  .serving-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .serving-btn {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .serving-btn .alc { font-size: 0.7rem; color: var(--muted); display: block; }
+  .serving-btn.selected {
+    border-color: var(--yellow);
+    background: rgba(255,213,79,0.12);
+    color: var(--text);
+  }
+
+  /* 杯数カウンター */
+  .counter {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: fit-content;
+  }
+  .counter-btn {
+    width: 48px; height: 48px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 1.4rem;
+    cursor: pointer;
+    border-radius: 10px 0 0 10px;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+    transition: background 0.1s;
+  }
+  .counter-btn:last-child { border-radius: 0 10px 10px 0; }
+  .counter-btn:active { background: var(--border); }
+  .counter-val {
+    width: 56px; height: 48px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text);
+    user-select: none;
+  }
+
+  /* 写真アップロード */
+  .photo-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .photo-area:hover { border-color: var(--accent2); }
+  .photo-area input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+  .photo-area .icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+  .photo-area .hint { font-size: 0.82rem; color: var(--muted); }
+  .photo-preview {
+    width: 100%; max-height: 200px; object-fit: cover;
+    border-radius: 10px; display: none; margin-top: 8px;
+  }
+
+  /* アルコールg プレビュー */
+  .alc-preview {
+    background: rgba(255,213,79,0.1);
+    border: 1px solid rgba(255,213,79,0.3);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .alc-preview .val { font-size: 1.8rem; font-weight: 700; color: var(--yellow); }
+  .alc-preview .unit { font-size: 0.85rem; color: var(--muted); }
+  .alc-preview .note { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
+
+  /* 送信ボタン */
+  .submit-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 14px;
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 16px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.02em;
+  }
+  .submit-btn:active { transform: scale(0.98); opacity: 0.9; }
+  .submit-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* トースト通知 */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 24px;
+    font-size: 0.95rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 100;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error   { border-color: var(--red);   color: var(--red); }
+
+  .hidden { display: none !important; }
+  .section-title {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span>🍶</span>
+  <h1>飲酒ログ</h1>
+  <a href="/">ダッシュボード</a>
+</header>
+
+<div class="form-body">
+
+  <form id="drinkForm" enctype="multipart/form-data">
+
+    <!-- 日時 -->
+    <div class="field">
+      <label>日時</label>
+      <input type="datetime-local" name="datetime" id="datetimeInput">
+    </div>
+
+    <!-- カテゴリ -->
+    <div class="field">
+      <label>カテゴリ</label>
+      <div class="cat-grid">
+        {% set cats = [
+          ('ビール',     '🍺'),
+          ('ワイン',     '🍷'),
+          ('日本酒',     '🍶'),
+          ('ハイボール', '🥃'),
+          ('サワー',     '🍋'),
+          ('その他',     '🍸'),
+        ] %}
+        {% for cat, emoji in cats %}
+        <div class="cat-btn" data-cat="{{ cat }}" onclick="selectCat(this)">
+          <span class="emoji">{{ emoji }}</span>{{ cat }}
+        </div>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="category" id="categoryInput">
+    </div>
+
+    <!-- 提供サイズ（ビールのみ） -->
+    <div class="field hidden" id="servingField">
+      <label>提供サイズ</label>
+      <div class="serving-grid" id="servingGrid">
+        {% for serving, info in presets.get('beer', {}).items() %}
+        <div class="serving-btn" data-serving="{{ serving }}"
+             data-vol="{{ info.volume_ml }}" data-abv="{{ info.abv }}"
+             onclick="selectServing(this)">
+          {{ serving }}
+          <span class="alc">{{ (info.volume_ml * (info.abv / 100) * 0.8) | round(0) | int }}g</span>
+        </div>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="serving" id="servingInput">
+    </div>
+
+    <!-- 写真（ワイン・日本酒） -->
+    <div class="field hidden" id="photoField">
+      <label>ラベル写真 <span style="color:var(--muted); font-weight:400; font-size:0.75rem;">（Gemini AIで自動解析）</span></label>
+      <div class="photo-area" id="photoArea">
+        <input type="file" name="photo" id="photoInput" accept="image/*" capture="environment"
+               onchange="previewPhoto(this)">
+        <span class="icon">📷</span>
+        <span class="hint">タップして撮影 or ライブラリから選択</span>
+      </div>
+      <img id="photoPreview" class="photo-preview" alt="">
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 杯数 -->
+    <div class="field">
+      <label>杯数</label>
+      <div class="counter">
+        <div class="counter-btn" onclick="changeCount(-1)">−</div>
+        <div class="counter-val" id="countVal">1</div>
+        <div class="counter-btn" onclick="changeCount(1)">+</div>
+      </div>
+      <input type="hidden" name="count" id="countInput" value="1">
+    </div>
+
+    <!-- 純アルコールg プレビュー -->
+    <div class="field hidden" id="alcPreviewField">
+      <label>推定純アルコール</label>
+      <div class="alc-preview">
+        <span class="val" id="alcVal">—</span>
+        <span class="unit">g</span>
+        <span class="note" id="alcNote"></span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 銘柄・商品名 -->
+    <div class="field">
+      <label>銘柄・商品名 <span style="color:var(--muted); font-weight:400;">（任意）</span></label>
+      <input type="text" name="name" id="nameInput" placeholder="例: よなよなエール、獺祭 二割三分">
+    </div>
+
+    <!-- 店・場所 -->
+    <div class="field">
+      <label>店・場所 <span style="color:var(--muted); font-weight:400;">（任意）</span></label>
+      <input type="text" name="place" placeholder="例: moto Tokyo、家">
+    </div>
+
+    <!-- メモ -->
+    <div class="field">
+      <label>メモ <span style="color:var(--muted); font-weight:400;">（任意）</span></label>
+      <textarea name="note" placeholder="味の感想など…"></textarea>
+    </div>
+
+    <button type="button" class="submit-btn" id="submitBtn" onclick="submitForm()" disabled>
+      記録する
+    </button>
+
+  </form>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// プリセットデータ（Jinja2から）
+const PRESETS = {{ presets | tojson }};
+
+// ── 日時デフォルト（現在時刻） ──
+(function() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById('datetimeInput').value = local;
+})();
+
+let currentCat    = '';
+let currentServing = '';
+let currentCount   = 1;
+let currentVolMl   = null;
+let currentAbv     = null;
+
+// ── カテゴリ選択 ──
+function selectCat(el) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  currentCat = el.dataset.cat;
+  document.getElementById('categoryInput').value = currentCat;
+
+  const servingField  = document.getElementById('servingField');
+  const photoField    = document.getElementById('photoField');
+
+  if (currentCat === 'ビール') {
+    servingField.classList.remove('hidden');
+    photoField.classList.add('hidden');
+  } else if (currentCat === 'ワイン' || currentCat === '日本酒') {
+    servingField.classList.add('hidden');
+    photoField.classList.remove('hidden');
+    // ワイン/日本酒のプリセットでデフォルトalcを表示
+    const catKey = currentCat === 'ワイン' ? 'wine' : 'sake';
+    const p = PRESETS[catKey];
+    if (p) {
+      const first = Object.values(p)[0];
+      currentVolMl = first.volume_ml * currentCount;
+      currentAbv   = first.abv;
+    } else {
+      currentVolMl = null; currentAbv = null;
+    }
+  } else {
+    servingField.classList.add('hidden');
+    photoField.classList.add('hidden');
+    // その他のプリセット
+    const catKey = { 'ハイボール': 'highball', 'サワー': 'sour', 'その他': 'other' }[currentCat] || 'other';
+    const p = PRESETS[catKey];
+    if (p) {
+      const first = Object.values(p)[0];
+      currentVolMl = first.volume_ml * currentCount;
+      currentAbv   = first.abv;
+    } else {
+      currentVolMl = null; currentAbv = null;
+    }
+  }
+
+  // ビール以外はサービング選択をリセット
+  if (currentCat !== 'ビール') {
+    currentServing = '';
+    document.getElementById('servingInput').value = '';
+    document.querySelectorAll('.serving-btn').forEach(b => b.classList.remove('selected'));
+  }
+
+  updateAlcPreview();
+  updateSubmitBtn();
+}
+
+// ── 提供サイズ選択 ──
+function selectServing(el) {
+  document.querySelectorAll('.serving-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  currentServing = el.dataset.serving;
+  document.getElementById('servingInput').value = currentServing;
+  currentVolMl = parseFloat(el.dataset.vol) * currentCount;
+  currentAbv   = parseFloat(el.dataset.abv);
+  updateAlcPreview();
+  updateSubmitBtn();
+}
+
+// ── 杯数カウンター ──
+function changeCount(delta) {
+  currentCount = Math.max(1, Math.min(10, currentCount + delta));
+  document.getElementById('countVal').textContent = currentCount;
+  document.getElementById('countInput').value = currentCount;
+  // volを杯数で再計算
+  if (currentVolMl !== null) {
+    const perCount = currentVolMl / (currentCount - delta || 1);
+    currentVolMl = perCount * currentCount;
+  }
+  // サービングボタンから再計算
+  const selServing = document.querySelector('.serving-btn.selected');
+  if (selServing) {
+    currentVolMl = parseFloat(selServing.dataset.vol) * currentCount;
+    currentAbv   = parseFloat(selServing.dataset.abv);
+  }
+  updateAlcPreview();
+}
+
+// ── 純アルコールプレビュー更新 ──
+function updateAlcPreview() {
+  const field = document.getElementById('alcPreviewField');
+  const valEl = document.getElementById('alcVal');
+  const noteEl = document.getElementById('alcNote');
+
+  if (currentVolMl && currentAbv) {
+    const g = Math.round(currentVolMl * (currentAbv / 100) * 0.8 * 10) / 10;
+    valEl.textContent = g;
+    noteEl.textContent = `${currentVolMl}ml × ${currentAbv}% × 0.8`;
+    field.classList.remove('hidden');
+  } else if (currentCat === 'ワイン' || currentCat === '日本酒') {
+    valEl.textContent = '—';
+    noteEl.textContent = '写真解析後に確定';
+    field.classList.remove('hidden');
+  } else {
+    field.classList.add('hidden');
+  }
+}
+
+// ── 送信ボタン有効化 ──
+function updateSubmitBtn() {
+  const ok = currentCat !== '' &&
+    (currentCat !== 'ビール' || currentServing !== '');
+  document.getElementById('submitBtn').disabled = !ok;
+}
+
+// ── 写真プレビュー ──
+function previewPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('photoPreview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    document.querySelector('#photoArea .icon').textContent = '✅';
+    document.querySelector('#photoArea .hint').textContent = file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── フォーム送信 ──
+async function submitForm() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '送信中…';
+
+  const form = document.getElementById('drinkForm');
+  const fd   = new FormData(form);
+
+  try {
+    const res  = await fetch('/api/drinks/add', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (data.ok) {
+      let msg = '✅ 記録しました';
+      if (data.alcohol_g) msg += `（${data.alcohol_g}g）`;
+      if (data.meta) msg += ` — ${data.meta}`;
+      if (!data.notion) msg += ' ⚠️ Notion未同期';
+      showToast(msg, 'success');
+      // フォームリセット
+      form.reset();
+      document.querySelectorAll('.cat-btn, .serving-btn').forEach(b => b.classList.remove('selected'));
+      document.getElementById('photoPreview').style.display = 'none';
+      document.querySelector('#photoArea .icon').textContent = '📷';
+      document.querySelector('#photoArea .hint').textContent = 'タップして撮影 or ライブラリから選択';
+      document.getElementById('countVal').textContent = '1';
+      document.getElementById('servingField').classList.add('hidden');
+      document.getElementById('photoField').classList.add('hidden');
+      document.getElementById('alcPreviewField').classList.add('hidden');
+      currentCat = ''; currentServing = ''; currentCount = 1;
+      currentVolMl = null; currentAbv = null;
+      // 日時を現在時刻にリセット
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById('datetimeInput').value =
+        `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    } else {
+      showToast('❌ ' + (data.error || '送信失敗'), 'error');
+    }
+  } catch(e) {
+    showToast('❌ 通信エラー: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '記録する';
+    updateSubmitBtn();
+  }
+}
+
+// ── トースト通知 ──
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: drinks-log
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: NOTION_TOKEN
+        sync: false
+      - key: DRINKS_DB_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
