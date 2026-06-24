@@ -273,6 +273,9 @@
   .record-item.editing { border-color: var(--yellow); background: rgba(255,213,79,0.08); }
   .record-emoji { font-size: 1.4rem; flex-shrink: 0; }
   .record-body { flex: 1; min-width: 0; }
+  .record-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .record-tag  { font-size: 0.7rem; background: rgba(83,109,254,0.15); color: var(--accent2);
+                 border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
   .record-cat  { font-size: 0.88rem; font-weight: 600; }
   .record-sub  { font-size: 0.78rem; color: var(--muted); margin-top: 2px;
                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -747,6 +750,28 @@ async function deleteRecord() {
   }
 }
 
+// ── AI解析タグ生成 ──
+function buildAiTags(r) {
+  const tags = [];
+  if (r.wine) {
+    const w = r.wine;
+    if (w.type)    tags.push({'red':'赤','white':'白','rose':'ロゼ','sparkling':'スパークリング'}[w.type] || w.type);
+    if (w.region)  tags.push(w.region);
+    if (w.grapes && w.grapes.length) tags.push(...w.grapes.slice(0, 2));
+    if (w.vintage) tags.push(w.vintage + 'y');
+    if (w.producer) tags.push(w.producer);
+  }
+  if (r.sake) {
+    const s = r.sake;
+    if (s.grade)       tags.push(s.grade);
+    if (s.prefecture)  tags.push(s.prefecture);
+    if (s.brewery)     tags.push(s.brewery);
+    if (s.rice)        tags.push(s.rice);
+    if (s.polish_ratio) tags.push(`精米${s.polish_ratio}%`);
+  }
+  return tags.map(t => `<span class="record-tag">${t}</span>`).join('');
+}
+
 // ── 直近の記録を取得・表示 ──
 const CAT_EMOJI = { 'ビール':'🍺','ワイン':'🍷','日本酒':'🍶','ハイボール':'🥃','サワー':'🍋','その他':'🍸' };
 
@@ -773,11 +798,13 @@ function renderRecords(records) {
     const sub   = [r.name, r.place].filter(Boolean).join(' · ') || r.category;
     const dt    = (r.datetime || r.date || '').slice(0, 16).replace('T', ' ');
     const alc   = r.alcohol_g != null ? `${r.alcohol_g}g` : '—';
+    const tags  = buildAiTags(r);
     return `<div class="record-item" data-id="${r.id}" onclick='editRecord(${JSON.stringify(r).replace(/'/g, "&#39;")})'>
       <div class="record-emoji">${emoji}</div>
       <div class="record-body">
         <div class="record-cat">${r.category}${r.count > 1 ? ` ×${r.count}` : ''}</div>
         <div class="record-sub">${sub}</div>
+        ${tags ? `<div class="record-tags">${tags}</div>` : ''}
       </div>
       <div class="record-right">
         <div class="record-alc">${alc}</div>
