@@ -174,7 +174,7 @@ def api_drinks_add():
             "日時":     {"date": {"start": dt_str}},
             "カテゴリ": {"select": {"name": category}},
             "杯数":     {"number": count},
-            "解析済み": {"checkbox": True},
+            "解析済み": {"checkbox": False},
         }
         if serving:
             props["提供（ビール）"] = {"select": {"name": serving}}
