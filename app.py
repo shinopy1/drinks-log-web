@@ -164,12 +164,12 @@ def api_drinks_add():
             if category == "ワイン":
                 wine_data = vision
                 parts = [str(v) for k, v in vision.items() if v and k not in ("abv", "retail_price")]
-                meta = " / ".join(parts)
+                meta = "VISION_JSON:" + json.dumps(vision, ensure_ascii=False)
             else:
                 sake_data = vision
                 parts = [vision.get("brand"), vision.get("brewery"), vision.get("grade"),
                          f"精米{vision.get('polish_ratio')}%" if vision.get("polish_ratio") else None]
-                meta = " / ".join(p for p in parts if p)
+                meta = "VISION_JSON:" + json.dumps(vision, ensure_ascii=False)
 
     # ── Notion ページ作成 ──
     notion_page_id = None
