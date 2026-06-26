@@ -365,6 +365,30 @@
       <input type="hidden" name="serving" id="servingInput">
     </div>
 
+    <!-- 量選択（ワイン） -->
+    <div class="field hidden" id="wineVolumeField">
+      <label>量</label>
+      <div class="serving-grid">
+        <div class="serving-btn" data-vol="125" data-abv="12" onclick="selectVolume(this)">125ml<span class="alc">12g</span></div>
+        <div class="serving-btn" data-vol="250" data-abv="12" onclick="selectVolume(this)">250ml<span class="alc">24g</span></div>
+        <div class="serving-btn" data-vol="375" data-abv="12" onclick="selectVolume(this)">375ml<span class="alc">36g</span></div>
+        <div class="serving-btn" data-vol="500" data-abv="12" onclick="selectVolume(this)">500ml<span class="alc">48g</span></div>
+        <div class="serving-btn" data-vol="750" data-abv="12" onclick="selectVolume(this)">750ml<span class="alc">72g</span></div>
+      </div>
+    </div>
+
+    <!-- 量選択（日本酒） -->
+    <div class="field hidden" id="sakeVolumeField">
+      <label>量</label>
+      <div class="serving-grid">
+        <div class="serving-btn" data-vol="90"  data-abv="15" onclick="selectVolume(this)">0.5合<span class="alc">11g</span></div>
+        <div class="serving-btn" data-vol="180" data-abv="15" onclick="selectVolume(this)">1合<span class="alc">22g</span></div>
+        <div class="serving-btn" data-vol="270" data-abv="15" onclick="selectVolume(this)">1.5合<span class="alc">32g</span></div>
+        <div class="serving-btn" data-vol="360" data-abv="15" onclick="selectVolume(this)">2合<span class="alc">43g</span></div>
+        <div class="serving-btn" data-vol="540" data-abv="15" onclick="selectVolume(this)">3合<span class="alc">65g</span></div>
+      </div>
+    </div>
+
     <!-- 写真（ワイン・日本酒） -->
     <div class="field hidden" id="photoField">
       <label>ラベル写真 <span style="color:var(--muted); font-weight:400; font-size:0.75rem;">（Gemini AIで自動解析）</span></label>
@@ -379,8 +403,8 @@
 
     <div class="divider"></div>
 
-    <!-- 杯数 -->
-    <div class="field">
+    <!-- 杯数（ビール・ハイボール・サワー・その他） -->
+    <div class="field" id="countField">
       <label>杯数</label>
       <div class="counter">
         <div class="counter-btn" onclick="changeCount(-1)">−</div>
@@ -488,25 +512,36 @@ function selectCat(el) {
   const servingField  = document.getElementById('servingField');
   const photoField    = document.getElementById('photoField');
 
+  const countField      = document.getElementById('countField');
+  const wineVolumeField = document.getElementById('wineVolumeField');
+  const sakeVolumeField = document.getElementById('sakeVolumeField');
+
+  // 量選択ボタンをリセット
+  document.querySelectorAll('#wineVolumeField .serving-btn, #sakeVolumeField .serving-btn')
+    .forEach(b => b.classList.remove('selected'));
+  wineVolumeField.classList.add('hidden');
+  sakeVolumeField.classList.add('hidden');
+
   if (currentCat === 'ビール') {
     servingField.classList.remove('hidden');
     photoField.classList.add('hidden');
-  } else if (currentCat === 'ワイン' || currentCat === '日本酒') {
+    countField.classList.remove('hidden');
+  } else if (currentCat === 'ワイン') {
     servingField.classList.add('hidden');
     photoField.classList.remove('hidden');
-    // ワイン/日本酒のプリセットでデフォルトalcを表示
-    const catKey = currentCat === 'ワイン' ? 'wine' : 'sake';
-    const p = PRESETS[catKey];
-    if (p) {
-      const first = Object.values(p)[0];
-      currentVolMl = first.volume_ml * currentCount;
-      currentAbv   = first.abv;
-    } else {
-      currentVolMl = null; currentAbv = null;
-    }
+    wineVolumeField.classList.remove('hidden');
+    countField.classList.add('hidden');
+    currentVolMl = null; currentAbv = null;
+  } else if (currentCat === '日本酒') {
+    servingField.classList.add('hidden');
+    photoField.classList.remove('hidden');
+    sakeVolumeField.classList.remove('hidden');
+    countField.classList.add('hidden');
+    currentVolMl = null; currentAbv = null;
   } else {
     servingField.classList.add('hidden');
     photoField.classList.add('hidden');
+    countField.classList.remove('hidden');
     // その他のプリセット
     const catKey = { 'ハイボール': 'highball', 'サワー': 'sour', 'その他': 'other' }[currentCat] || 'other';
     // 「その他」のとき銘柄フィールドを必須化
@@ -544,7 +579,7 @@ function selectCat(el) {
   updateSubmitBtn();
 }
 
-// ── 提供サイズ選択 ──
+// ── 提供サイズ選択（ビール） ──
 function selectServing(el) {
   document.querySelectorAll('.serving-btn').forEach(b => b.classList.remove('selected'));
   el.classList.add('selected');
@@ -552,6 +587,19 @@ function selectServing(el) {
   document.getElementById('servingInput').value = currentServing;
   currentVolMl = parseFloat(el.dataset.vol) * currentCount;
   currentAbv   = parseFloat(el.dataset.abv);
+  updateAlcPreview();
+  updateSubmitBtn();
+}
+
+// ── 量選択（ワイン・日本酒） ──
+function selectVolume(el) {
+  const parent = el.closest('.serving-grid');
+  parent.querySelectorAll('.serving-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  currentVolMl = parseFloat(el.dataset.vol);
+  currentAbv   = parseFloat(el.dataset.abv);
+  // count=1 固定で hidden にしているが hidden input は送る
+  document.getElementById('countInput').value = 1;
   updateAlcPreview();
   updateSubmitBtn();
 }
@@ -598,8 +646,12 @@ function updateAlcPreview() {
 // ── 送信ボタン有効化 ──
 function updateSubmitBtn() {
   const editing = !!document.getElementById('editIdInput').value;
-  const ok = currentCat !== '' &&
-    (currentCat !== 'ビール' || currentServing !== '' || editing);
+  const volumeSelected = currentVolMl !== null;
+  const ok = currentCat !== '' && (editing || (
+    (currentCat !== 'ビール'  || currentServing !== '') &&
+    (currentCat !== 'ワイン'  || volumeSelected) &&
+    (currentCat !== '日本酒'  || volumeSelected)
+  ));
   document.getElementById('submitBtn').disabled = !ok;
 }
 
@@ -629,6 +681,9 @@ function resetForm() {
   document.getElementById('countVal').textContent = '1';
   document.getElementById('servingField').classList.add('hidden');
   document.getElementById('photoField').classList.add('hidden');
+  document.getElementById('wineVolumeField').classList.add('hidden');
+  document.getElementById('sakeVolumeField').classList.add('hidden');
+  document.getElementById('countField').classList.remove('hidden');
   document.getElementById('alcPreviewField').classList.add('hidden');
   document.getElementById('editIdInput').value = '';
   document.getElementById('editBanner').style.display = 'none';
